@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
 
 # Título de la aplicación
 st.title('Análisis de Spreads de Instrumentos Agrícolas')
@@ -17,20 +17,20 @@ df = cargar_datos('closing_prices_limpio.csv')
 st.write('Datos cargados:')
 st.write(df)
 
-# Selección de productos
-productos = df['PRODUCTO'].unique()
-producto1 = st.selectbox('Selecciona el primer producto', productos)
+# Crear dos columnas
+col1, col2 = st.columns(2)
 
-# Filtrar posiciones para el primer producto
-posiciones_producto1 = df[df['PRODUCTO'] == producto1]['TIPO CONTRATO'].unique()
-posicion1 = st.selectbox('Selecciona la primera posición', posiciones_producto1)
+# Selección de productos en la primera columna
+with col1:
+    producto1 = st.selectbox('Selecciona el primer producto', df['PRODUCTO'].unique())
+    posiciones_producto1 = df[df['PRODUCTO'] == producto1]['TIPO CONTRATO'].unique()
+    posicion1 = st.selectbox('Selecciona la primera posición', posiciones_producto1)
 
-# Selección del segundo producto
-producto2 = st.selectbox('Selecciona el segundo producto', productos)
-
-# Filtrar posiciones para el segundo producto
-posiciones_producto2 = df[df['PRODUCTO'] == producto2]['TIPO CONTRATO'].unique()
-posicion2 = st.selectbox('Selecciona la segunda posición', posiciones_producto2)
+# Selección del segundo producto en la segunda columna
+with col2:
+    producto2 = st.selectbox('Selecciona el segundo producto', df['PRODUCTO'].unique())
+    posiciones_producto2 = df[df['PRODUCTO'] == producto2]['TIPO CONTRATO'].unique()
+    posicion2 = st.selectbox('Selecciona la segunda posición', posiciones_producto2)
 
 # Filtrar datos para los productos y posiciones seleccionados
 df_pos1 = df[(df['PRODUCTO'] == producto1) & (df['TIPO CONTRATO'] == posicion1)]
@@ -53,20 +53,37 @@ st.write(df_pos2.head())
 st.write('Datos combinados:')
 st.write(df_merged.head())
 
-# Crear gráfico de líneas
-fig, ax = plt.subplots()
-ax.plot(df_merged['FECHA'], df_merged['AJUSTE / PRIMA REF._pos1'], label=f'{producto1} {posicion1}')
-ax.plot(df_merged['FECHA'], df_merged['AJUSTE / PRIMA REF._pos2'], label=f'{producto2} {posicion2}')
-# ax.plot(df_merged['FECHA'], df_merged['SPREAD'], label='Spread', linestyle='--')
+# Crear gráfico interactivo con Plotly
+fig = go.Figure()
 
-# Formatear el gráfico
-ax.set_xlabel('Fecha')
-ax.set_ylabel('Precio de ajuste / prima ref.')
-ax.legend()
-plt.xticks(rotation=45)
+fig.add_trace(go.Scatter(x=df_merged['FECHA'], y=df_merged['AJUSTE / PRIMA REF._pos1'], 
+                         mode='lines+markers', name=f'{producto1} {posicion1}'))
+
+fig.add_trace(go.Scatter(x=df_merged['FECHA'], y=df_merged['AJUSTE / PRIMA REF._pos2'], 
+                         mode='lines+markers', name=f'{producto2} {posicion2}'))
+
+fig.update_layout(
+    xaxis_title='Fecha',
+    yaxis_title='Precio de ajuste / prima ref.',
+    xaxis=dict(
+        tickformat='%m/%Y',
+        tickmode='auto'
+    ),
+    legend=dict(
+        yanchor="top",
+        y=0.99,
+        xanchor="left",
+        x=0.01
+    )
+)
+
+# Asegurarse de que la fecha completa se muestre en los puntos
+fig.update_traces(
+    hovertemplate='Fecha: %{x|%d/%m/%Y}<br>Precio: %{y}'
+)
 
 # Mostrar gráfico en Streamlit
-st.pyplot(fig)
+st.plotly_chart(fig)
 
 # Mostrar tabla de spreads
 st.write('Tabla de spreads:')
