@@ -3,23 +3,47 @@ import csv
 import boto3
 import requests
 from datetime import datetime
+from io import StringIO
 
 # Inicializar el cliente de S3
 s3 = boto3.client('s3')
+bucket_name = 'e-mat-spread'
+csv_file_name = 'historico_spread.csv'
+
+def obtener_productos_agricolas():
+    try:
+        # Descargar el archivo CSV existente desde S3
+        existing_obj = s3.get_object(Bucket=bucket_name, Key=csv_file_name)
+        existing_csv = existing_obj['Body'].read().decode('utf-8')
+        csv_reader = csv.DictReader(StringIO(existing_csv))
+        
+        # Obtener los valores únicos de la columna PRODUCTO
+        productos_agricolas = set(row['PRODUCTO'] for row in csv_reader)
+        
+        return productos_agricolas
+    except s3.exceptions.NoSuchKey:
+        return set()
 
 def lambda_handler(event, context):
+    # Calcular la fecha de ayer
+    today = datetime.now()
+    today_str = today.strftime('%Y-%m-%d')
+
     # Definir la URL del endpoint de precios de cierre
     url_closing_prices = 'https://apicem.matbarofex.com.ar/api/v2/closing-prices'
 
     # Definir los parámetros para la API
     params = {
-        "from": "2024-07-19",
-        "to": "2024-07-19",
+        "from": today_str,
+        "to": today_str,
         "market": "ROFX",
         "version": "v2"
     }
 
     log_messages = []  # Lista para almacenar mensajes de log
+
+    # Obtener la lista de productos agrícolas
+    productos_agricolas = obtener_productos_agricolas()
 
     # Realizar la solicitud a la API para obtener la lista de precios de cierre
     response_closing_prices = requests.get(url_closing_prices, params=params)
@@ -38,22 +62,35 @@ def lambda_handler(event, context):
                 "AJUSTE / PRIMA REF.": item.get("settlement")
             }
             for item in data_closing_prices.get('data', [])
+            if item.get("product") in productos_agricolas
         ]
 
-        # Convertir los datos a CSV
-        from io import StringIO
+        # Contar las filas agregadas
+        filas_agregadas = len(filtered_data)
+        log_messages.append(f"Filas agregadas: {filas_agregadas}")
+
+        # Descargar el archivo CSV existente desde S3
+        try:
+            existing_obj = s3.get_object(Bucket=bucket_name, Key=csv_file_name)
+            existing_csv = existing_obj['Body'].read().decode('utf-8')
+            csv_reader = csv.DictReader(StringIO(existing_csv))
+            existing_data = list(csv_reader)
+        except s3.exceptions.NoSuchKey:
+            existing_data = []
+
+        # Combinar los datos existentes con los nuevos datos
+        combined_data = existing_data + filtered_data
+
+        # Convertir los datos combinados a CSV
         csv_file = StringIO()
         csv_writer = csv.DictWriter(csv_file, fieldnames=["PRODUCTO", "TIPO CONTRATO", "FECHA", "AJUSTE / PRIMA REF."])
         csv_writer.writeheader()
-        for row in filtered_data:
+        for row in combined_data:
             csv_writer.writerow(row)
         csv_file.seek(0)
 
-        # Nombre del archivo CSV en S3
-        csv_file_name = 'historico_spread.csv'
-
-        # Subir el archivo CSV a S3
-        s3.put_object(Bucket='e-mat-spread', Key=csv_file_name, Body=csv_file.getvalue())
+        # Subir el archivo CSV actualizado a S3
+        s3.put_object(Bucket=bucket_name, Key=csv_file_name, Body=csv_file.getvalue())
         log_messages.append(f"Datos guardados en S3: {csv_file_name}")
 
     except json.JSONDecodeError:
@@ -62,7 +99,7 @@ def lambda_handler(event, context):
 
     # Guardar los mensajes de log en un archivo en S3
     log_file_name = f"logs/lambda_logs_{datetime.now().strftime('%Y-%m-%d_%H-%M-%S')}.txt"
-    s3.put_object(Bucket='e-mat-spread', Key=log_file_name, Body='\n'.join(log_messages))
+    s3.put_object(Bucket=bucket_name, Key=log_file_name, Body='\n'.join(log_messages))
 
     return {
         'statusCode': 200,
