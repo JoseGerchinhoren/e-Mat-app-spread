@@ -131,8 +131,8 @@ else:
             tickmode='auto'
         ),
         legend=dict(
-            yanchor="top",
-            y=0.99,
+            yanchor="bottom",
+            y=1,
             xanchor="left",
             x=0.01
         )
@@ -146,8 +146,27 @@ else:
     # Mostrar gráfico en Streamlit
     st.plotly_chart(fig)
 
+    # Calcular promedio y desviación estándar de spread de los instrumentos seleccionados
+    promedio_spread_actual = df_merged['SPREAD'].mean()
+    std_spread_actual = df_merged['SPREAD'].std()
+    promedio_spread_anterior = df_merged_anterior['SPREAD'].mean()
+    std_spread_anterior = df_merged_anterior['SPREAD'].std()
+
+    # Mostrar el promedio y la desviación estándar de spread de los instrumentos seleccionados
+    st.header(f'Promedio del Spread: {promedio_spread_actual:.2f}')
+    st.subheader(f'Promedio de Spread del Año Anterior: {promedio_spread_anterior:.2f}')
+
+    st.header(f'Desviación Estándar del Spread: {std_spread_actual:.2f}')
+    st.subheader(f'Desviación Estándar del Spread del Año Anterior: {std_spread_anterior:.2f}')
+
+    cv_actual = std_spread_actual / promedio_spread_actual if promedio_spread_actual != 0 else float('inf')
+    cv_anterior = std_spread_anterior / promedio_spread_anterior if promedio_spread_anterior != 0 else float('inf')
+
+    st.header(f'Coeficiente de Variación del Spread: {cv_actual:.2f}')
+    st.subheader(f'Coeficiente de Variación del Spread del Año Anterior: {cv_anterior:.2f}')
+
     # Mostrar tabla de spreads
-    st.write('Tabla de spreads:')
+    st.header('Tabla de spreads:')
     
     # Ordenar las fechas de más reciente a más antigua
     df_merged = df_merged.sort_values(by='FECHA', ascending=False)
