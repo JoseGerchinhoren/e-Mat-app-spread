@@ -4,6 +4,7 @@ import boto3
 import requests
 from datetime import datetime
 from io import StringIO
+import re
 
 # Inicializar el cliente de S3
 s3 = boto3.client('s3')
@@ -24,8 +25,13 @@ def obtener_productos_agricolas():
     except s3.exceptions.NoSuchKey:
         return set()
 
+def es_opcion(tipo_contrato):
+    # Patrón que detecta si el contrato contiene un número seguido de una letra (p.ej. "185 C")
+    patron_opcion = re.compile(r'\d+ [A-Z]')
+    return bool(patron_opcion.search(tipo_contrato))
+
 def lambda_handler(event, context):
-    # Calcular la fecha de ayer
+    # Calcular la fecha de hoy
     today = datetime.now()
     today_str = today.strftime('%Y-%m-%d')
 
@@ -62,7 +68,7 @@ def lambda_handler(event, context):
                 "AJUSTE / PRIMA REF.": item.get("settlement")
             }
             for item in data_closing_prices.get('data', [])
-            if item.get("product") in productos_agricolas
+            if item.get("product") in productos_agricolas and not es_opcion(item.get("symbol"))
         ]
 
         # Contar las filas agregadas
