@@ -21,13 +21,13 @@ col1, col2 = st.columns(2)
 # Selección de productos en la primera columna
 with col1:
     producto1 = st.selectbox('Selecciona el primer producto', df['PRODUCTO'].unique())
-    posiciones_producto1 = df[df['PRODUCTO'] == producto1]['TIPO CONTRATO'].unique()
+    posiciones_producto1 = sorted(df[df['PRODUCTO'] == producto1]['TIPO CONTRATO'].unique(), key=lambda x: (int(x[-2:]), x.split('/')[0]), reverse=True)
     posicion1 = st.selectbox('Selecciona la primera posición', posiciones_producto1)
 
 # Selección del segundo producto en la segunda columna
 with col2:
     producto2 = st.selectbox('Selecciona el segundo producto', df['PRODUCTO'].unique())
-    posiciones_producto2 = df[df['PRODUCTO'] == producto2]['TIPO CONTRATO'].unique()
+    posiciones_producto2 = sorted(df[df['PRODUCTO'] == producto2]['TIPO CONTRATO'].unique(), key=lambda x: (int(x[-2:]), x.split('/')[0]), reverse=True)
     posicion2 = st.selectbox('Selecciona la segunda posición', posiciones_producto2)
 
 def get_previous_year_position(position):
@@ -63,24 +63,34 @@ df_pos2_anterior['FECHA'] = df_pos2_anterior['FECHA'].apply(adjust_date_to_next_
 df_merged = pd.merge(df_pos1, df_pos2, on='FECHA', suffixes=('_pos1', '_pos2'))
 df_merged_anterior = pd.merge(df_pos1_anterior, df_pos2_anterior, on='FECHA', suffixes=('_pos1', '_pos2'))
 
-# Calcular spread
-df_merged['SPREAD'] = df_merged['AJUSTE / PRIMA REF._pos1'] - df_merged['AJUSTE / PRIMA REF._pos2']
-df_merged_anterior['SPREAD'] = df_merged_anterior['AJUSTE / PRIMA REF._pos1'] - df_merged_anterior['AJUSTE / PRIMA REF._pos2']
+# Renombrar columnas
+df_merged = df_merged.rename(columns={
+    'AJUSTE / PRIMA REF._pos1': 'AJUSTE POS1',
+    'AJUSTE / PRIMA REF._pos2': 'AJUSTE POS2'
+})
+
+# Calcular spread después de renombrar las columnas
+df_merged['SPREAD'] = df_merged['AJUSTE POS1'] - df_merged['AJUSTE POS2']
+df_merged_anterior = df_merged_anterior.rename(columns={
+    'AJUSTE / PRIMA REF._pos1': 'AJUSTE POS1',
+    'AJUSTE / PRIMA REF._pos2': 'AJUSTE POS2'
+})
+df_merged_anterior['SPREAD'] = df_merged_anterior['AJUSTE POS1'] - df_merged_anterior['AJUSTE POS2']
 
 # Crear gráfico interactivo con Plotly
 fig = go.Figure()
 
-fig.add_trace(go.Scatter(x=df_merged['FECHA'], y=df_merged['AJUSTE / PRIMA REF._pos1'], 
+fig.add_trace(go.Scatter(x=df_merged['FECHA'], y=df_merged['AJUSTE POS1'], 
                          mode='lines+markers', name=f'{producto1} {posicion1}'))
 
-fig.add_trace(go.Scatter(x=df_merged['FECHA'], y=df_merged['AJUSTE / PRIMA REF._pos2'], 
+fig.add_trace(go.Scatter(x=df_merged['FECHA'], y=df_merged['AJUSTE POS2'], 
                          mode='lines+markers', name=f'{producto2} {posicion2}'))
 
 # Añadir líneas del año anterior con estilo diferente
-fig.add_trace(go.Scatter(x=df_merged_anterior['FECHA'], y=df_merged_anterior['AJUSTE / PRIMA REF._pos1'], 
+fig.add_trace(go.Scatter(x=df_merged_anterior['FECHA'], y=df_merged_anterior['AJUSTE POS1'], 
                          mode='lines', line=dict(dash='dot'), name=f'{producto1} {posicion1_anterior}'))
 
-fig.add_trace(go.Scatter(x=df_merged_anterior['FECHA'], y=df_merged_anterior['AJUSTE / PRIMA REF._pos2'], 
+fig.add_trace(go.Scatter(x=df_merged_anterior['FECHA'], y=df_merged_anterior['AJUSTE POS2'], 
                          mode='lines', line=dict(dash='dot'), name=f'{producto2} {posicion2_anterior}'))
 
 fig.update_layout(
@@ -108,4 +118,7 @@ st.plotly_chart(fig)
 
 # Mostrar tabla de spreads
 st.write('Tabla de spreads:')
-st.write(df_merged[['FECHA', 'AJUSTE / PRIMA REF._pos1', 'AJUSTE / PRIMA REF._pos2', 'SPREAD']])
+df_merged['FECHA'] = df_merged['FECHA'].dt.strftime('%Y-%m-%d')
+
+# Mostrar la tabla de spreads con las nuevas columnas
+st.write(df_merged[['FECHA', 'AJUSTE POS1', 'AJUSTE POS2', 'SPREAD']])
