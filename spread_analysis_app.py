@@ -148,7 +148,11 @@ else:
 
     # Mostrar tabla de spreads
     st.write('Tabla de spreads:')
-    df_merged['FECHA'] = df_merged['FECHA'].dt.strftime('%Y-%m-%d')
+    
+    # Ordenar las fechas de más reciente a más antigua
+    df_merged = df_merged.sort_values(by='FECHA', ascending=False)
+
+    df_merged['FECHA'] = df_merged['FECHA'].dt.strftime('%d/%m/%Y')
 
     # Mostrar la tabla de spreads con las nuevas columnas
     st.write(df_merged[['FECHA', 'AJUSTE POS1', 'AJUSTE POS2', 'SPREAD']])
