@@ -152,18 +152,46 @@ else:
     promedio_spread_anterior = df_merged_anterior['SPREAD'].mean()
     std_spread_anterior = df_merged_anterior['SPREAD'].std()
 
+    # Spread actual
+    spread_actual = df_merged['SPREAD'].iloc[-1]
+
+    # Calcular el umbral para recomendaciones basadas en desvíos estándar del promedio histórico
+    umbral_bajo = promedio_spread_actual - std_spread_actual
+    umbral_alto = promedio_spread_actual + std_spread_actual
+
+    # Recomendación basada en el spread
+    st.header('Recomendación:')
+    if spread_actual > umbral_alto:
+        st.write(f'El spread más reciente ({spread_actual:.1f}) es significativamente mayor que el promedio histórico ({promedio_spread_actual:.2f}).')
+        st.write(f'Recomendación: Vender {posicion1} y comprar  {posicion2}.')
+        st.write('Nivel de recomendación: Alta')
+    elif spread_actual < umbral_bajo:
+        st.write(f'El spread más reciente ({spread_actual:.1f}) es significativamente menor que el promedio histórico ({promedio_spread_actual:.2f}).')
+        st.write(f'Recomendación: Comprar {posicion1} y vender {posicion2}.')
+        st.write('Nivel de recomendación: Alta')
+    elif spread_actual < umbral_alto:
+        st.write(f'El spread más reciente ({spread_actual:.1f}) es poco menor que el promedio histórico ({promedio_spread_actual:.2f}).')
+        st.write(f'Recomendación: Considerar comprar {posicion1} y vender {posicion2}.')
+        st.write('Nivel de recomendación: Baja')
+    elif spread_actual > umbral_alto:
+        st.write(f'El spread más reciente ({spread_actual:.1f}) es poco mayor que el promedio histórico ({promedio_spread_actual:.2f}).')
+        st.write(f'Recomendación: Considerar comprar {posicion2} y vender {posicion1}.')
+        st.write('Nivel de recomendación: Baja')
+
     # Mostrar el promedio y la desviación estándar de spread de los instrumentos seleccionados
     st.header(f'Promedio del Spread: {promedio_spread_actual:.2f}')
-    st.subheader(f'Promedio de Spread del Año Anterior: {promedio_spread_anterior:.2f}')
+    st.write(f'Promedio de Spread del Año Anterior: {promedio_spread_anterior:.2f}')
 
     st.header(f'Desviación Estándar del Spread: {std_spread_actual:.2f}')
-    st.subheader(f'Desviación Estándar del Spread del Año Anterior: {std_spread_anterior:.2f}')
+    st.write(f'Desviación Estándar del Spread del Año Anterior: {std_spread_anterior:.2f}')
 
-    cv_actual = std_spread_actual / promedio_spread_actual if promedio_spread_actual != 0 else float('inf')
-    cv_anterior = std_spread_anterior / promedio_spread_anterior if promedio_spread_anterior != 0 else float('inf')
+    # Calcular el Coeficiente de Variación (CV) en porcentaje
+    cv_actual = (std_spread_actual / promedio_spread_actual * 100) if promedio_spread_actual != 0 else float('inf')
+    cv_anterior = (std_spread_anterior / promedio_spread_anterior * 100) if promedio_spread_anterior != 0 else float('inf')
 
-    st.header(f'Coeficiente de Variación del Spread: {cv_actual:.2f}')
-    st.subheader(f'Coeficiente de Variación del Spread del Año Anterior: {cv_anterior:.2f}')
+    # Mostrar el CV en porcentaje
+    st.header(f'Coeficiente de Variación del Spread: {cv_actual:.2f}%')
+    st.write(f'Coeficiente de Variación del Spread del Año Anterior: {cv_anterior:.2f}%')
 
     # Mostrar tabla de spreads
     st.header('Tabla de spreads:')
@@ -174,4 +202,4 @@ else:
     df_merged['FECHA'] = df_merged['FECHA'].dt.strftime('%d/%m/%Y')
 
     # Mostrar la tabla de spreads con las nuevas columnas
-    st.write(df_merged[['FECHA', 'AJUSTE POS1', 'AJUSTE POS2', 'SPREAD']])
+    st.dataframe(df_merged[['FECHA', 'AJUSTE POS1', 'AJUSTE POS2', 'SPREAD']])
