@@ -161,22 +161,28 @@ else:
 
     # Recomendación basada en el spread
     st.header('Recomendación:')
+
     if spread_actual > umbral_alto:
         st.write(f'El spread más reciente ({spread_actual:.1f}) es significativamente mayor que el promedio histórico ({promedio_spread_actual:.2f}).')
-        st.write(f'Recomendación: Vender {posicion1} y comprar  {posicion2}.')
+        st.write(f'Recomendación: Vender {posicion1} y comprar {posicion2}.')
         st.write('Nivel de recomendación: Alta')
     elif spread_actual < umbral_bajo:
         st.write(f'El spread más reciente ({spread_actual:.1f}) es significativamente menor que el promedio histórico ({promedio_spread_actual:.2f}).')
         st.write(f'Recomendación: Comprar {posicion1} y vender {posicion2}.')
         st.write('Nivel de recomendación: Alta')
-    elif spread_actual < umbral_alto:
-        st.write(f'El spread más reciente ({spread_actual:.1f}) es poco menor que el promedio histórico ({promedio_spread_actual:.2f}).')
-        st.write(f'Recomendación: Considerar comprar {posicion1} y vender {posicion2}.')
-        st.write('Nivel de recomendación: Baja')
-    elif spread_actual > umbral_alto:
-        st.write(f'El spread más reciente ({spread_actual:.1f}) es poco mayor que el promedio histórico ({promedio_spread_actual:.2f}).')
-        st.write(f'Recomendación: Considerar comprar {posicion2} y vender {posicion1}.')
-        st.write('Nivel de recomendación: Baja')
+    else:
+        if spread_actual > promedio_spread_actual:
+            st.write(f'El spread más reciente ({spread_actual:.1f}) es poco mayor que el promedio histórico ({promedio_spread_actual:.2f}).')
+            st.write(f'Recomendación: Considerar vender {posicion1} y comprar {posicion2}.')
+            st.write('Nivel de recomendación: Baja')
+        elif spread_actual < promedio_spread_actual:
+            st.write(f'El spread más reciente ({spread_actual:.1f}) es poco menor que el promedio histórico ({promedio_spread_actual:.2f}).')
+            st.write(f'Recomendación: Considerar comprar {posicion1} y vender {posicion2}.')
+            st.write('Nivel de recomendación: Baja')
+        else:
+            st.write(f'El spread más reciente ({spread_actual:.1f}) es igual al promedio histórico ({promedio_spread_actual:.2f}).')
+            st.write('Recomendación: No hay una acción específica recomendada.')
+            st.write('Nivel de recomendación: Neutra')
 
     # Mostrar el promedio y la desviación estándar de spread de los instrumentos seleccionados
     st.header(f'Promedio del Spread: {promedio_spread_actual:.2f}')
