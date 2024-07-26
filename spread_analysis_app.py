@@ -19,7 +19,7 @@ def cargar_dataframe_desde_s3(s3, bucket_name, archivo_csv):
         return pd.read_csv(io.BytesIO(response['Body'].read()))
     except s3.exceptions.NoSuchKey:
         st.warning("No se encontró el archivo CSV en S3.")
-        return pd.DataFrame(columns=['FECHA', 'PRODUCTO', 'TIPO CONTRATO', 'AJUSTE / PRIMA REF.'])
+        return pd.DataFrame(columns=['AÑO', 'MES-DIA', 'PRODUCTO', 'TIPO CONTRATO', 'AJUSTE / PRIMA REF.'])
 
 # Título de la aplicación
 st.title('Spread de Instrumentos Agrícolas')
@@ -33,8 +33,6 @@ df = cargar_dataframe_desde_s3(s3, bucket_name, archivo_csv)
 if df.empty:
     st.error("No se pudieron cargar los datos. Verifica el archivo en S3.")
 else:
-    df['FECHA'] = pd.to_datetime(df['FECHA'])
-
     # Verificar y limpiar datos en la columna TIPO CONTRATO
     def limpiar_tipo_contrato(tipo_contrato):
         try:
@@ -45,6 +43,10 @@ else:
 
     df['TIPO_CONTRATO_CLEAN'] = df['TIPO CONTRATO'].apply(limpiar_tipo_contrato)
     
+    # Crear columnas de fecha combinada
+    df['FECHA'] = df['AÑO'].astype(str) + '-' + df['MES-DIA']
+    df['FECHA'] = pd.to_datetime(df['FECHA'], format='%Y-%m-%d')
+
     # Crear dos columnas
     col1, col2 = st.columns(2)
 
@@ -165,11 +167,11 @@ else:
     if spread_actual > umbral_alto:
         st.write(f'El spread más reciente ({spread_actual:.1f}) es significativamente mayor que el promedio histórico ({promedio_spread_actual:.2f}).')
         st.write(f'Recomendación: Vender {posicion1} y comprar {posicion2}.')
-        st.write('Nivel de recomendación: Alta')
+        st.write('Nivel de recomendación: Alto')
     elif spread_actual < umbral_bajo:
         st.write(f'El spread más reciente ({spread_actual:.1f}) es significativamente menor que el promedio histórico ({promedio_spread_actual:.2f}).')
         st.write(f'Recomendación: Comprar {posicion1} y vender {posicion2}.')
-        st.write('Nivel de recomendación: Alta')
+        st.write('Nivel de recomendación: Alto')
     else:
         if spread_actual > promedio_spread_actual:
             st.write(f'El spread más reciente ({spread_actual:.1f}) es poco mayor que el promedio histórico ({promedio_spread_actual:.2f}).')
