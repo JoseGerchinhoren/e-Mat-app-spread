@@ -172,24 +172,30 @@ else:
 
     # Añadir trazas para los datos de los productos y posiciones seleccionadas
     fig.add_trace(go.Scatter(x=df_merged['FECHA'], y=df_merged['AJUSTE POS1'], 
-                             mode='lines+markers', name=f'{producto1} {posicion1}'))
+                            mode='lines+markers', name=f'{producto1} {posicion1}', 
+                            line=dict(color='orangered'), marker=dict(color='orangered')))
 
     fig.add_trace(go.Scatter(x=df_merged['FECHA'], y=df_merged['AJUSTE POS2'], 
-                             mode='lines+markers', name=f'{producto2} {posicion2}'))
+                            mode='lines+markers', name=f'{producto2} {posicion2}', 
+                            line=dict(color='dodgerblue'), marker=dict(color='dodgerblue')))
 
     # Añadir líneas del año anterior con estilo diferente
     fig.add_trace(go.Scatter(x=df_merged_anterior['FECHA'], y=df_merged_anterior['AJUSTE POS1'], 
-                             mode='lines', line=dict(dash='dot'), name=f'{producto1} {posicion1_anterior}'))
+                            mode='lines', line=dict(color='orangered', dash='dot'), 
+                            name=f'{producto1} {posicion1_anterior}'))
 
     fig.add_trace(go.Scatter(x=df_merged_anterior['FECHA'], y=df_merged_anterior['AJUSTE POS2'], 
-                             mode='lines', line=dict(dash='dot'), name=f'{producto2} {posicion2_anterior}'))
+                            mode='lines', line=dict(color='dodgerblue', dash='dot'), 
+                            name=f'{producto2} {posicion2_anterior}'))
 
     # Añadir trazas para el promedio histórico
     fig.add_trace(go.Scatter(x=df_promedio1['FECHA'], y=df_promedio1['AJUSTE / PRIMA REF.'], 
-                             mode='lines+markers', name=f'Promedio Histórico {producto1} - {posicion1}'))
+                            mode='lines+markers', name=f'Promedio Histórico {producto1} - {posicion1}',
+                            line=dict(color='darkorange', dash='dot'), opacity=0.6))
 
     fig.add_trace(go.Scatter(x=df_promedio2['FECHA'], y=df_promedio2['AJUSTE / PRIMA REF.'], 
-                             mode='lines+markers', name=f'Promedio Histórico {producto2} - {posicion2}'))
+                            mode='lines+markers', name=f'Promedio Histórico {producto2} - {posicion2}', 
+                            line=dict(color='aqua', dash='dot'), opacity=0.6))
 
     fig.update_layout(
         xaxis_title='Fecha',
