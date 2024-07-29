@@ -3,6 +3,7 @@ import pandas as pd
 import boto3
 import io
 from datetime import datetime
+import re
 import plotly.graph_objects as go
 
 # Obtener credenciales desde el archivo config
@@ -36,12 +37,12 @@ else:
     # Verificar y limpiar datos en la columna TIPO CONTRATO
     def limpiar_tipo_contrato(tipo_contrato):
         try:
-            return int(tipo_contrato[-2:])
-        except ValueError:
-            # En caso de error, devolver un valor que no afecte el orden
-            return float('inf')
+            return int(tipo_contrato.split('/')[-1][-2:])
+        except (ValueError, IndexError):
+            return None
 
-    df['TIPO_CONTRATO_CLEAN'] = df['TIPO CONTRATO'].apply(limpiar_tipo_contrato)
+    df['AÑO_CONTRATO'] = df['TIPO CONTRATO'].apply(limpiar_tipo_contrato)
+    df['AÑO_CONTRATO'] = df['AÑO_CONTRATO'].astype('Int64')  # Asegúrate de que los años sean enteros
 
     # Crear dos columnas
     col1, col2 = st.columns(2)
@@ -58,9 +59,21 @@ else:
         posiciones_producto2 = sorted(df[df['PRODUCTO'] == producto2]['TIPO CONTRATO'].unique(), key=lambda x: (limpiar_tipo_contrato(x), x.split('/')[0]), reverse=True)
         posicion2 = st.selectbox('Selecciona la segunda posición', posiciones_producto2)
 
-    # Filtrar datos de los productos y posiciones seleccionadas
-    df_filtro1 = df[(df['PRODUCTO'] == producto1) & (df['TIPO CONTRATO'] == posicion1)]
-    df_filtro2 = df[(df['PRODUCTO'] == producto2) & (df['TIPO CONTRATO'] == posicion2)]
+    # Selección de años para incluir en el cálculo
+    anos_disponibles = sorted(df['AÑO_CONTRATO'].dropna().unique())
+    anos_seleccionados = st.multiselect('Selecciona los años a incluir en el cálculo', options=anos_disponibles, default=anos_disponibles)
+
+    # Función para generar el patrón de expresión regular a partir de la posición seleccionada
+    def generar_patron(posicion):
+        # Tomar los primeros caracteres de la posición excluyendo los dos últimos números
+        return re.compile(rf'^{posicion[:-2]}\d{{2}}$')
+
+    # Filtrar datos por el producto, la posición seleccionada (considerando la corrección), y por los años seleccionados
+    patron1 = generar_patron(posicion1)
+    df_filtro1 = df[(df['PRODUCTO'] == producto1) & (df['TIPO CONTRATO'].apply(lambda x: bool(patron1.match(x)))) & (df['AÑO_CONTRATO'].isin(anos_seleccionados))]
+
+    patron2 = generar_patron(posicion2)
+    df_filtro2 = df[(df['PRODUCTO'] == producto2) & (df['TIPO CONTRATO'].apply(lambda x: bool(patron2.match(x)))) & (df['AÑO_CONTRATO'].isin(anos_seleccionados))]
 
     # Extraer el año de las posiciones seleccionadas
     year1 = int("20" + posicion1.split('/')[-1][-2:])
