@@ -4,6 +4,7 @@ import boto3
 import io
 from datetime import datetime
 import plotly.graph_objects as go
+import re
 
 # Obtener credenciales desde el archivo config
 from config import cargar_configuracion
@@ -36,12 +37,14 @@ else:
     # Verificar y limpiar datos en la columna TIPO CONTRATO
     def limpiar_tipo_contrato(tipo_contrato):
         try:
-            return int(tipo_contrato[-2:])
-        except ValueError:
-            # En caso de error, devolver un valor que no afecte el orden
-            return float('inf')
+            return int(tipo_contrato.split('/')[-1][-2:])
+        except (ValueError, IndexError):
+            return None
 
     df['TIPO_CONTRATO_CLEAN'] = df['TIPO CONTRATO'].apply(limpiar_tipo_contrato)
+
+    df['AÑO_CONTRATO'] = df['TIPO CONTRATO'].apply(limpiar_tipo_contrato)
+    df['AÑO_CONTRATO'] = df['AÑO_CONTRATO'].astype('Int64')  # Asegúrate de que los años sean enteros
     
     # Crear columnas de fecha combinada
     df['FECHA'] = df['AÑO'].astype(str) + '-' + df['MES-DIA']
@@ -109,9 +112,50 @@ else:
     })
     df_merged_anterior['SPREAD'] = df_merged_anterior['AJUSTE POS1'] - df_merged_anterior['AJUSTE POS2']
 
+    # Selección de años para incluir en el cálculo
+    anos_disponibles = sorted(df['AÑO_CONTRATO'].dropna().unique())
+    anos_seleccionados = st.multiselect('Selecciona los años a incluir en el cálculo', options=anos_disponibles, default=anos_disponibles)
+
+    # Función para generar el patrón de expresión regular a partir de la posición seleccionada
+    def generar_patron(posicion):
+        return re.compile(rf'^{posicion[:-2]}\d{{2}}$')
+
+    # Filtrar datos por el producto, la posición seleccionada (considerando la corrección), y por los años seleccionados
+    patron1 = generar_patron(posicion1)
+    df_filtro1 = df[(df['PRODUCTO'] == producto1) & (df['TIPO CONTRATO'].apply(lambda x: bool(patron1.match(x)))) & (df['AÑO_CONTRATO'].isin(anos_seleccionados))]
+
+    patron2 = generar_patron(posicion2)
+    df_filtro2 = df[(df['PRODUCTO'] == producto2) & (df['TIPO CONTRATO'].apply(lambda x: bool(patron2.match(x)))) & (df['AÑO_CONTRATO'].isin(anos_seleccionados))]
+
+    # Extraer el año de las posiciones seleccionadas
+    year1 = int("20" + posicion1.split('/')[-1][-2:])
+    year2 = int("20" + posicion2.split('/')[-1][-2:])
+
+    # Validar que las fechas sean válidas
+    def validar_fecha(mes_dia):
+        try:
+            return datetime.strptime(f"{year1}-{mes_dia}", '%Y-%m-%d')
+        except ValueError:
+            return None
+
+    df_filtro1['FECHA'] = df_filtro1['MES-DIA'].apply(lambda x: validar_fecha(x))
+    df_filtro2['FECHA'] = df_filtro2['MES-DIA'].apply(lambda x: validar_fecha(x))
+
+    df_filtro1 = df_filtro1.dropna(subset=['FECHA'])
+    df_filtro2 = df_filtro2.dropna(subset=['FECHA'])
+
+    # Calcular el promedio por MES-DIA para cada producto
+    df_promedio1 = df_filtro1.groupby('MES-DIA')['AJUSTE / PRIMA REF.'].mean().reset_index()
+    df_promedio2 = df_filtro2.groupby('MES-DIA')['AJUSTE / PRIMA REF.'].mean().reset_index()
+
+    # Convertir MES-DIA a un datetime para plotly usando el año de las posiciones seleccionadas
+    df_promedio1['FECHA'] = df_promedio1['MES-DIA'].apply(lambda x: datetime.strptime(f"{year1}-{x}", '%Y-%m-%d'))
+    df_promedio2['FECHA'] = df_promedio2['MES-DIA'].apply(lambda x: datetime.strptime(f"{year2}-{x}", '%Y-%m-%d'))
+
     # Crear gráfico interactivo con Plotly
     fig = go.Figure()
 
+    # Añadir trazas para los datos de los productos y posiciones seleccionadas
     fig.add_trace(go.Scatter(x=df_merged['FECHA'], y=df_merged['AJUSTE POS1'], 
                              mode='lines+markers', name=f'{producto1} {posicion1}'))
 
@@ -124,6 +168,13 @@ else:
 
     fig.add_trace(go.Scatter(x=df_merged_anterior['FECHA'], y=df_merged_anterior['AJUSTE POS2'], 
                              mode='lines', line=dict(dash='dot'), name=f'{producto2} {posicion2_anterior}'))
+
+    # Añadir trazas para el promedio histórico
+    fig.add_trace(go.Scatter(x=df_promedio1['FECHA'], y=df_promedio1['AJUSTE / PRIMA REF.'], 
+                             mode='lines+markers', name=f'Promedio Histórico {producto1} - {posicion1}'))
+
+    fig.add_trace(go.Scatter(x=df_promedio2['FECHA'], y=df_promedio2['AJUSTE / PRIMA REF.'], 
+                             mode='lines+markers', name=f'Promedio Histórico {producto2} - {posicion2}'))
 
     fig.update_layout(
         xaxis_title='Fecha',
