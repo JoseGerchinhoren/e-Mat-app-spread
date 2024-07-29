@@ -114,7 +114,10 @@ else:
 
     # Selección de años para incluir en el cálculo
     anos_disponibles = sorted(df['AÑO_CONTRATO'].dropna().unique())
-    anos_seleccionados = st.multiselect('Selecciona los años a incluir en el cálculo', options=anos_disponibles, default=anos_disponibles)
+    anos_seleccionados = st.multiselect('Selecciona los años a incluir en el cálculo de promedio histórico del ajuste ', options=anos_disponibles, default=anos_disponibles)
+
+    # Selección del tipo de promedio
+    tipo_promedio = st.radio('Elige cómo calcular el promedio histórico del ajuste', ['Por Mes', 'Por Día y Mes'])
 
     # Función para generar el patrón de expresión regular a partir de la posición seleccionada
     def generar_patron(posicion):
@@ -144,13 +147,25 @@ else:
     df_filtro1 = df_filtro1.dropna(subset=['FECHA'])
     df_filtro2 = df_filtro2.dropna(subset=['FECHA'])
 
-    # Calcular el promedio por MES-DIA para cada producto
-    df_promedio1 = df_filtro1.groupby('MES-DIA')['AJUSTE / PRIMA REF.'].mean().reset_index()
-    df_promedio2 = df_filtro2.groupby('MES-DIA')['AJUSTE / PRIMA REF.'].mean().reset_index()
+    if tipo_promedio == 'Por Día y Mes':
+        # Calcular el promedio por MES-DIA para cada producto
+        df_promedio1 = df_filtro1.groupby('MES-DIA')['AJUSTE / PRIMA REF.'].mean().reset_index()
+        df_promedio2 = df_filtro2.groupby('MES-DIA')['AJUSTE / PRIMA REF.'].mean().reset_index()
 
-    # Convertir MES-DIA a un datetime para plotly usando el año de las posiciones seleccionadas
-    df_promedio1['FECHA'] = df_promedio1['MES-DIA'].apply(lambda x: datetime.strptime(f"{year1}-{x}", '%Y-%m-%d'))
-    df_promedio2['FECHA'] = df_promedio2['MES-DIA'].apply(lambda x: datetime.strptime(f"{year2}-{x}", '%Y-%m-%d'))
+        # Convertir MES-DIA a un datetime para plotly usando el año de las posiciones seleccionadas
+        df_promedio1['FECHA'] = df_promedio1['MES-DIA'].apply(lambda x: datetime.strptime(f"{year1}-{x}", '%Y-%m-%d'))
+        df_promedio2['FECHA'] = df_promedio2['MES-DIA'].apply(lambda x: datetime.strptime(f"{year2}-{x}", '%Y-%m-%d'))
+    else:
+        # Calcular el promedio por MES para cada producto
+        df_filtro1['MES'] = df_filtro1['FECHA'].dt.to_period('M')
+        df_filtro2['MES'] = df_filtro2['FECHA'].dt.to_period('M')
+
+        df_promedio1 = df_filtro1.groupby('MES')['AJUSTE / PRIMA REF.'].mean().reset_index()
+        df_promedio2 = df_filtro2.groupby('MES')['AJUSTE / PRIMA REF.'].mean().reset_index()
+
+        # Convertir MES a un datetime para plotly
+        df_promedio1['FECHA'] = df_promedio1['MES'].dt.to_timestamp()
+        df_promedio2['FECHA'] = df_promedio2['MES'].dt.to_timestamp()
 
     # Crear gráfico interactivo con Plotly
     fig = go.Figure()
