@@ -1,0 +1,70 @@
+HECHO:
+Descargue el archivo CSV con datos historicos de instrumentos agropecuarios, con 10 años de historico.
+
+Limpie el archivo CSV con Pyhton, el codigo elimina columnas innesesarias y crea un archivo CSV con los datos historicos limpios, que es el que subí a S3.
+
+Desarrolle una pagina borrador con Streamlit, una biblioteca de Python, si es que se quiere borrador porque puede servir como la herramienta en si igualmente. https://e-mat-app-spread.streamlit.app/
+
+Utilice AWS Lambda para la ingesta de datos al CSV histórico en S3, utilizando la API de MatbaRofex, con código Python. Por ahora solo hice una prueba con una fecha puntual. 
+
+Modificar el codigo de la funcion para que tome la fecha actual para el parametro del llamado a la API.
+
+Automatice la funcion lambda con amazon eventbridge, con el codigo cron 0 19 ? * MON-FRI * , que es para que se ejecute de lunes a viernes a las 19hs.
+
+Modique el codigo de funcion lambda para filtrar y que guarde datos de solo los futuros de instrumentos agricolas.
+
+Modifique pagina Streamlit para arreglar el formato de fecha y para que el orden de la posicion sea del año mas reciente al mas antiguo.
+
+Modifique herramienta Streamlit para que tome los datos desde S3.
+
+Agregue a pagina Streamlit Promedio del Spread, Promedio de Spread del Año Anterior, Desviación Estándar del Spread, Desviación Estándar del Spread del Año Anterior, Coeficiente de Variación del Spread, Coeficiente de Variación del Spread del Año Anterior.
+
+Agregue sector de recomendacion de compra y venta, con nivel de recomendacion dependiendo del valor actual del spread, si esta cerca o lejos del promedio, con un umbral que depende de la Desviación Estándar del Spread, este umbral indica el límite superior e inferior de lo que se considera "normal". Si el valor actual del spread esta cerca del spread promedio es baja la recomendacion. Y si el valor actual del spread esta lejos, ya sea por debajo o por encima, del spread promedio es alta la recomendacion.
+
+Puse coeficiente de variacion como porcentaje.
+
+Agregue al grafico el valor promedio de ajuste historico de las posiciones seleccionadas.
+
+Modifique funcion lambda por los cambios de columnas.
+
+
+HACER:
+Limpiar productos irrelevantes. Mandar resumen de producto y cuantas filas tiene cada uno, para ver cuales son irrelevantes.
+
+Revisar resumen de reunion para ver mas tareas.
+
+Ver lo de los porcentajes de la herramienta de spread
+
+Cambiar el año de promedio historico, porque queda desfazado al año que se quiere, poner uno menos o que tome el año que tenga la mayoria de las fechas.
+
+Poner st.expander para recomendacion, metricas y tabla
+
+Para el calculo de promedio ver de que no tenga en cuenta los valores de ajuste en las fechas que no hay datos en los años seleccionados.
+
+A TENER EN CUENTA:
+
+Mensaje de Leandro:
+Instrumentos interesantes para comparar y monitorear, siempre desde nuestro lado para generar alertas a los usuarios:
+Siempre hablando de posiciones de Matba en dólares:
+soja mayo vs soja julio
+soja mayo vs soja noviembre
+soja julio vs soja noviembre
+maiz abril vs maiz julio
+maiz julio vs maiz diciembre
+maiz abril vs soja mayo
+maiz julio vs soja julio
+trigo diciembre vs trigo enero
+trigo diciembre vs trigo marzo
+trigo diciembre vs trigo julio
+trigo diciembre vs maiz diciembre
+trigo enero vs trigo marzo
+trigo enero vs trigo julio
+Los que son dentro del mismo cultivo como por ejemplo trigo enero vs trigo julio nos permiten hacer sugerencias muy interesantes a futuro que pueden incluir la financiación del productor agropecuario
+
+ANALIZAR SI HACER:
+Matriz de Correlación: Agrega una matriz de correlación para evaluar cómo los spreads de diferentes instrumentos están relacionados entre sí.
+Análisis de Correlación Dinámica: Calcula y muestra cómo la correlación entre spreads cambia a lo largo del tiempo.
+
+Hacer algoritmo para analizar entre que instrumentos hay mayor spread promedio, desviacion y CV. Esto es para que recomiende en que instrumentos trabajar.
+
+Poner spread maximo, para tomar deciciones si el spread promedio esta mas cerca del maximo o esta mas cerca del minimo, para incluir en recomendador.

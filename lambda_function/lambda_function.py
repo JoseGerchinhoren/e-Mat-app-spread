@@ -64,8 +64,9 @@ def lambda_handler(event, context):
             {
                 "PRODUCTO": item.get("product"),
                 "TIPO CONTRATO": item.get("symbol"),
-                "FECHA": item.get("dateTime")[:10],  # Extraer solo la fecha
-                "AJUSTE / PRIMA REF.": item.get("settlement")
+                "AJUSTE / PRIMA REF.": item.get("settlement"),
+                "AÑO": item.get("dateTime")[:4],  # Extraer solo el año
+                "MES-DIA": datetime.strptime(item.get("dateTime")[:10], '%Y-%m-%d').strftime('%m-%d')  # Extraer mes y día
             }
             for item in data_closing_prices.get('data', [])
             if item.get("product") in productos_agricolas and not es_opcion(item.get("symbol"))
@@ -89,7 +90,7 @@ def lambda_handler(event, context):
 
         # Convertir los datos combinados a CSV
         csv_file = StringIO()
-        csv_writer = csv.DictWriter(csv_file, fieldnames=["PRODUCTO", "TIPO CONTRATO", "FECHA", "AJUSTE / PRIMA REF."])
+        csv_writer = csv.DictWriter(csv_file, fieldnames=["PRODUCTO", "TIPO CONTRATO", "AJUSTE / PRIMA REF.", "AÑO", "MES-DIA"])
         csv_writer.writeheader()
         for row in combined_data:
             csv_writer.writerow(row)
