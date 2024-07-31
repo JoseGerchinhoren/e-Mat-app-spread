@@ -117,7 +117,7 @@ else:
     anos_seleccionados = st.multiselect('Selecciona los años a incluir en el cálculo de promedio histórico del ajuste ', options=anos_disponibles, default=anos_disponibles)
 
     # Selección del tipo de promedio
-    tipo_promedio = st.radio('Elige cómo calcular el promedio histórico del ajuste', ['Por Mes', 'Por Día y Mes'])
+    tipo_promedio = st.radio('Elige cómo calcular el promedio histórico del ajuste', ['Por Mes', 'Por Día'])
 
     # Función para generar el patrón de expresión regular a partir de la posición seleccionada
     def generar_patron(posicion):
@@ -147,14 +147,39 @@ else:
     df_filtro1 = df_filtro1.dropna(subset=['FECHA'])
     df_filtro2 = df_filtro2.dropna(subset=['FECHA'])
 
-    if tipo_promedio == 'Por Día y Mes':
+    if tipo_promedio == 'Por Día':
         # Calcular el promedio por MES-DIA para cada producto
         df_promedio1 = df_filtro1.groupby('MES-DIA')['AJUSTE / PRIMA REF.'].mean().reset_index()
         df_promedio2 = df_filtro2.groupby('MES-DIA')['AJUSTE / PRIMA REF.'].mean().reset_index()
 
-        # Convertir MES-DIA a un datetime para plotly usando el año de las posiciones seleccionadas
-        df_promedio1['FECHA'] = df_promedio1['MES-DIA'].apply(lambda x: datetime.strptime(f"{year1}-{x}", '%Y-%m-%d'))
-        df_promedio2['FECHA'] = df_promedio2['MES-DIA'].apply(lambda x: datetime.strptime(f"{year2}-{x}", '%Y-%m-%d'))
+        # Encuentra el año más frecuente en los datos filtrados
+        anio_mas_frecuente1 = df_pos1['AÑO'].value_counts().idxmax()
+        anio_mas_frecuente2 = df_pos2['AÑO'].value_counts().idxmax()
+
+        # Crear dos columnas
+        col3, col4 = st.columns(2)
+
+        # Mostrar y permitir la modificación del año más frecuente
+        with col3:
+            anio_mas_frecuente1 = st.number_input('Año más frecuente para el primer producto', value=anio_mas_frecuente1)
+        with col4:
+            anio_mas_frecuente2 = st.number_input('Año más frecuente para el segundo producto', value=anio_mas_frecuente2)
+
+        # Función para convertir MES-DIA a fecha, manejando errores de fechas inválidas
+        def convertir_a_fecha(mes_dia, year):
+            try:
+                return datetime.strptime(f"{year}-{mes_dia}", '%Y-%m-%d')
+            except ValueError:
+                return None
+
+        # Convertir MES-DIA a un datetime para plotly usando el año más frecuente
+        df_promedio1['FECHA'] = df_promedio1['MES-DIA'].apply(lambda x: convertir_a_fecha(x, anio_mas_frecuente1))
+        df_promedio2['FECHA'] = df_promedio2['MES-DIA'].apply(lambda x: convertir_a_fecha(x, anio_mas_frecuente2))
+
+        # Filtrar las filas que tuvieron conversiones exitosas
+        df_promedio1 = df_promedio1.dropna(subset=['FECHA'])
+        df_promedio2 = df_promedio2.dropna(subset=['FECHA'])
+
     else:
         # Calcular el promedio por MES para cada producto
         df_filtro1['MES'] = df_filtro1['FECHA'].dt.to_period('M')
@@ -163,9 +188,26 @@ else:
         df_promedio1 = df_filtro1.groupby('MES')['AJUSTE / PRIMA REF.'].mean().reset_index()
         df_promedio2 = df_filtro2.groupby('MES')['AJUSTE / PRIMA REF.'].mean().reset_index()
 
-        # Convertir MES a un datetime para plotly
-        df_promedio1['FECHA'] = df_promedio1['MES'].dt.to_timestamp()
-        df_promedio2['FECHA'] = df_promedio2['MES'].dt.to_timestamp()
+        # Encuentra el año más frecuente en los datos filtrados
+        anio_mas_frecuente1 = df_pos1['AÑO'].value_counts().idxmax()
+        anio_mas_frecuente2 = df_pos2['AÑO'].value_counts().idxmax()
+
+        # Crear dos columnas
+        col3, col4 = st.columns(2)
+
+        # Mostrar y permitir la modificación del año más frecuente
+        with col3:
+            anio_mas_frecuente1 = st.number_input('Año más frecuente para el primer producto', value=anio_mas_frecuente1)
+        with col4:
+            anio_mas_frecuente2 = st.number_input('Año más frecuente para el segundo producto', value=anio_mas_frecuente2)
+
+        # Convertir MES a un datetime para plotly usando el año más frecuente
+        def ajustar_año(fecha_periodo, year):
+            return fecha_periodo.to_timestamp().replace(year=year)
+
+        # Ajustar las fechas para el promedio histórico al año más frecuente
+        df_promedio1['FECHA'] = df_promedio1['MES'].apply(lambda x: ajustar_año(x, anio_mas_frecuente1))
+        df_promedio2['FECHA'] = df_promedio2['MES'].apply(lambda x: ajustar_año(x, anio_mas_frecuente2))
 
     # Crear gráfico interactivo con Plotly
     fig = go.Figure()
@@ -220,66 +262,58 @@ else:
     # Mostrar gráfico en Streamlit
     st.plotly_chart(fig)
 
-    # Calcular promedio y desviación estándar de spread de los instrumentos seleccionados
-    promedio_spread_actual = df_merged['SPREAD'].mean()
-    std_spread_actual = df_merged['SPREAD'].std()
-    promedio_spread_anterior = df_merged_anterior['SPREAD'].mean()
-    std_spread_anterior = df_merged_anterior['SPREAD'].std()
+    with st.expander("Métricas", expanded=True):
 
-    # Spread actual
-    spread_actual = df_merged['SPREAD'].iloc[-1]
+        # Calcular promedio y desviación estándar de spread de los instrumentos seleccionados
+        promedio_spread_actual = df_merged['SPREAD'].mean()
+        std_spread_actual = df_merged['SPREAD'].std()
+        promedio_spread_anterior = df_merged_anterior['SPREAD'].mean()
+        std_spread_anterior = df_merged_anterior['SPREAD'].std()
 
-    # Calcular el umbral para recomendaciones basadas en desvíos estándar del promedio histórico
-    umbral_bajo = promedio_spread_actual - std_spread_actual
-    umbral_alto = promedio_spread_actual + std_spread_actual
+        # Spread actual
+        spread_actual = df_merged['SPREAD'].iloc[-1]
 
-    # Recomendación basada en el spread
-    st.header('Recomendación:')
+        # Calcular el umbral para recomendaciones basadas en desvíos estándar del promedio histórico
+        umbral_bajo = promedio_spread_actual - std_spread_actual
+        umbral_alto = promedio_spread_actual + std_spread_actual
 
-    if spread_actual > umbral_alto:
-        st.write(f'El spread más reciente ({spread_actual:.1f}) es significativamente mayor que el promedio histórico ({promedio_spread_actual:.2f}).')
-        st.write(f'Recomendación: Vender {posicion1} y comprar {posicion2}.')
-        st.write('Nivel de recomendación: Alto')
-    elif spread_actual < umbral_bajo:
-        st.write(f'El spread más reciente ({spread_actual:.1f}) es significativamente menor que el promedio histórico ({promedio_spread_actual:.2f}).')
-        st.write(f'Recomendación: Comprar {posicion1} y vender {posicion2}.')
-        st.write('Nivel de recomendación: Alto')
-    else:
-        if spread_actual > promedio_spread_actual:
-            st.write(f'El spread más reciente ({spread_actual:.1f}) es poco mayor que el promedio histórico ({promedio_spread_actual:.2f}).')
-            st.write(f'Recomendación: Considerar vender {posicion1} y comprar {posicion2}.')
-            st.write('Nivel de recomendación: Baja')
-        elif spread_actual < promedio_spread_actual:
-            st.write(f'El spread más reciente ({spread_actual:.1f}) es poco menor que el promedio histórico ({promedio_spread_actual:.2f}).')
-            st.write(f'Recomendación: Considerar comprar {posicion1} y vender {posicion2}.')
-            st.write('Nivel de recomendación: Baja')
+        # Mostrar el promedio y la desviación estándar de spread de los instrumentos seleccionados
+        st.header(f'Promedio del Spread: {promedio_spread_actual:.2f}')
+
+        if spread_actual > umbral_alto:
+            st.write(f'El spread más reciente ({spread_actual:.1f}) es significativamente mayor que el promedio histórico ({promedio_spread_actual:.2f}).')
+        elif spread_actual < umbral_bajo:
+            st.write(f'El spread más reciente ({spread_actual:.1f}) es significativamente menor que el promedio histórico ({promedio_spread_actual:.2f}).')
         else:
-            st.write(f'El spread más reciente ({spread_actual:.1f}) es igual al promedio histórico ({promedio_spread_actual:.2f}).')
-            st.write('Recomendación: No hay una acción específica recomendada.')
-            st.write('Nivel de recomendación: Neutra')
+            if spread_actual > promedio_spread_actual:
+                st.write(f'El spread más reciente ({spread_actual:.1f}) es poco mayor que el promedio histórico ({promedio_spread_actual:.2f}).')
+            elif spread_actual < promedio_spread_actual:
+                st.write(f'El spread más reciente ({spread_actual:.1f}) es poco menor que el promedio histórico ({promedio_spread_actual:.2f}).')
+            else:
+                st.write(f'El spread más reciente ({spread_actual:.1f}) es igual al promedio histórico ({promedio_spread_actual:.2f}).')
 
-    # Mostrar el promedio y la desviación estándar de spread de los instrumentos seleccionados
-    st.header(f'Promedio del Spread: {promedio_spread_actual:.2f}')
-    st.write(f'Promedio de Spread del Año Anterior: {promedio_spread_anterior:.2f}')
+        st.write(f'Promedio de Spread del Año Anterior: {promedio_spread_anterior:.2f}')
 
-    st.header(f'Desviación Estándar del Spread: {std_spread_actual:.2f}')
-    st.write(f'Desviación Estándar del Spread del Año Anterior: {std_spread_anterior:.2f}')
+        st.header(f'Desviación Estándar del Spread: {std_spread_actual:.2f}')
+        st.write(f'Desviación Estándar del Spread del Año Anterior: {std_spread_anterior:.2f}')
 
-    # Calcular el Coeficiente de Variación (CV) en porcentaje
-    cv_actual = (std_spread_actual / promedio_spread_actual * 100) if promedio_spread_actual != 0 else float('inf')
-    cv_anterior = (std_spread_anterior / promedio_spread_anterior * 100) if promedio_spread_anterior != 0 else float('inf')
+        # Calcular el Coeficiente de Variación (CV) en porcentaje
+        cv_actual = (std_spread_actual / promedio_spread_actual * 100) if promedio_spread_actual != 0 else float('inf')
+        cv_anterior = (std_spread_anterior / promedio_spread_anterior * 100) if promedio_spread_anterior != 0 else float('inf')
 
-    # Mostrar el CV en porcentaje
-    st.header(f'Coeficiente de Variación del Spread: {cv_actual:.2f}%')
-    st.write(f'Coeficiente de Variación del Spread del Año Anterior: {cv_anterior:.2f}%')
+        # Mostrar el CV en porcentaje
+        st.header(f'Coeficiente de Variación del Spread: {cv_actual:.2f}%')
+        st.write(f'Coeficiente de Variación del Spread del Año Anterior: {cv_anterior:.2f}%')
 
-    # Mostrar tabla de spreads
-    st.header('Tabla de spreads:')
-    
-    # Ordenar las fechas de más reciente a más antigua
-    df_merged = df_merged.sort_values(by='FECHA', ascending=False)
+    with st.expander("Tabla de spreads", expanded=True):
 
-    df_merged['FECHA'] = df_merged['FECHA'].dt.strftime('%d/%m/%Y')
+        # Mostrar tabla de spreads
+        st.header('Tabla de spreads:')
+        
+        # Ordenar las fechas de más reciente a más antigua
+        df_merged = df_merged.sort_values(by='FECHA', ascending=False)
 
-    # Mostrar la tabla de spreads con las nuevas columnas
-    st.dataframe(df_merged[['FECHA', 'AJUSTE POS1', 'AJUSTE POS2', 'SPREAD']])
+        df_merged['FECHA'] = df_merged['FECHA'].dt.strftime('%d/%m/%Y')
+
+        # Mostrar la tabla de spreads con las nuevas columnas
+        st.dataframe(df_merged[['FECHA', 'AJUSTE POS1', 'AJUSTE POS2', 'SPREAD']])
