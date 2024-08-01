@@ -104,12 +104,6 @@ else:
         'AJUSTE / PRIMA REF._pos2': 'AJUSTE POS2'
     })
 
-    # Renombrar columnas
-    df_merged = df_merged.rename(columns={
-        'AJUSTE / PRIMA REF._pos1': 'AJUSTE POS1',
-        'AJUSTE / PRIMA REF._pos2': 'AJUSTE POS2'
-    })
-
     # Calcular spread después de renombrar las columnas
     df_merged['SPREAD'] = df_merged['AJUSTE POS1'] - df_merged['AJUSTE POS2']
     df_merged['SPREAD_PORCENTUAL'] = (df_merged['AJUSTE POS1'] / df_merged['AJUSTE POS2'] - 1) * 100 # Mide cuánto representa el precio del Producto 1 en relación al Producto 2, expresado como un porcentaje.
@@ -127,7 +121,7 @@ else:
     anos_seleccionados = st.multiselect('Selecciona los años a incluir en el cálculo de promedio histórico del ajuste ', options=anos_disponibles, default=anos_disponibles)
 
     # Selección del tipo de promedio
-    tipo_promedio = st.radio('Elige cómo calcular el promedio histórico del ajuste', ['Por Mes', 'Por Día'])
+    tipo_promedio = st.radio('Elige cómo calcular el promedio histórico del ajuste', ['Por Semana', 'Por Día', 'Por Mes'])
 
     # Función para generar el patrón de expresión regular a partir de la posición seleccionada
     def generar_patron(posicion):
@@ -165,15 +159,17 @@ else:
         # Encuentra el año más frecuente en los datos filtrados
         anio_mas_frecuente1 = df_pos1['AÑO'].value_counts().idxmax()
         anio_mas_frecuente2 = df_pos2['AÑO'].value_counts().idxmax()
+        # Determina el mayor de los dos años más frecuentes
+        anio_mas_frecuente = max(anio_mas_frecuente1, anio_mas_frecuente2)
 
         # Crear dos columnas
         col3, col4 = st.columns(2)
 
         # Mostrar y permitir la modificación del año más frecuente
         with col3:
-            anio_mas_frecuente1 = st.number_input('Año más frecuente para la primer posición', value=anio_mas_frecuente1)
+            anio_mas_frecuente1 = st.number_input('Año más frecuente para la primera posición', value=anio_mas_frecuente)
         with col4:
-            anio_mas_frecuente2 = st.number_input('Año más frecuente para la segunda posición', value=anio_mas_frecuente2)
+            anio_mas_frecuente2 = st.number_input('Año más frecuente para la segunda posición', value=anio_mas_frecuente)
 
         # Función para convertir MES-DIA a fecha, manejando errores de fechas inválidas
         def convertir_a_fecha(mes_dia, year):
@@ -190,6 +186,46 @@ else:
         df_promedio1 = df_promedio1.dropna(subset=['FECHA'])
         df_promedio2 = df_promedio2.dropna(subset=['FECHA'])
 
+    elif tipo_promedio == 'Por Semana':
+        # Calcular el promedio por semana para cada producto
+        df_filtro1['SEMANA'] = df_filtro1['FECHA'].dt.to_period('W').apply(lambda r: r.start_time)
+        df_filtro2['SEMANA'] = df_filtro2['FECHA'].dt.to_period('W').apply(lambda r: r.start_time)
+
+        df_promedio1 = df_filtro1.groupby('SEMANA')['AJUSTE / PRIMA REF.'].mean().reset_index()
+        df_promedio2 = df_filtro2.groupby('SEMANA')['AJUSTE / PRIMA REF.'].mean().reset_index()
+
+        # Encuentra el año más frecuente en los datos filtrados
+        anio_mas_frecuente1 = df_pos1['AÑO'].value_counts().idxmax()
+        anio_mas_frecuente2 = df_pos2['AÑO'].value_counts().idxmax()
+
+        # Determina el mayor de los dos años más frecuentes
+        anio_mas_frecuente = max(anio_mas_frecuente1, anio_mas_frecuente2)
+
+        # Crear dos columnas
+        col3, col4 = st.columns(2)
+
+        # Mostrar y permitir la modificación del año más frecuente
+        with col3:
+            anio_mas_frecuente1 = st.number_input('Año más frecuente para la primera posición', value=anio_mas_frecuente)
+        with col4:
+            anio_mas_frecuente2 = st.number_input('Año más frecuente para la segunda posición', value=anio_mas_frecuente)
+
+        # Ajustar las fechas para el promedio histórico al año más frecuente
+        def ajustar_año(fecha, year):
+            return fecha.replace(year=year)
+
+        df_promedio1['FECHA'] = df_promedio1['SEMANA'].apply(lambda x: ajustar_año(x, anio_mas_frecuente1))
+        df_promedio2['FECHA'] = df_promedio2['SEMANA'].apply(lambda x: ajustar_año(x, anio_mas_frecuente2))
+
+        # Ordenar por fecha para asegurar la correcta representación
+        df_promedio1 = df_promedio1.sort_values(by='FECHA').reset_index(drop=True)
+        df_promedio2 = df_promedio2.sort_values(by='FECHA').reset_index(drop=True)
+
+        # Añadir un NaN entre el final y el comienzo del siguiente ciclo para evitar que se unan
+        df_promedio1 = pd.concat([df_promedio1, pd.DataFrame({'FECHA': [pd.NaT], 'AJUSTE / PRIMA REF.': [None]})], ignore_index=True)
+        df_promedio2 = pd.concat([df_promedio2, pd.DataFrame({'FECHA': [pd.NaT], 'AJUSTE / PRIMA REF.': [None]})], ignore_index=True)
+
+
     else:
         # Calcular el promedio por MES para cada producto
         df_filtro1['MES'] = df_filtro1['FECHA'].dt.to_period('M')
@@ -201,17 +237,20 @@ else:
         # Encuentra el año más frecuente en los datos filtrados
         anio_mas_frecuente1 = df_pos1['AÑO'].value_counts().idxmax()
         anio_mas_frecuente2 = df_pos2['AÑO'].value_counts().idxmax()
+        
+        # Determina el mayor de los dos años más frecuentes
+        anio_mas_frecuente = max(anio_mas_frecuente1, anio_mas_frecuente2)
 
         # Crear dos columnas
         col3, col4 = st.columns(2)
 
         # Mostrar y permitir la modificación del año más frecuente
         with col3:
-            anio_mas_frecuente1 = st.number_input('Año más frecuente para el primer producto', value=anio_mas_frecuente1)
+            anio_mas_frecuente1 = st.number_input('Año más frecuente para la primera posición', value=anio_mas_frecuente)
         with col4:
-            anio_mas_frecuente2 = st.number_input('Año más frecuente para el segundo producto', value=anio_mas_frecuente2)
+            anio_mas_frecuente2 = st.number_input('Año más frecuente para la segunda posición', value=anio_mas_frecuente)
 
-        # Convertir MES a un datetime para plotly usando el año más frecuente
+        # Ajustar las fechas para el promedio histórico al año más frecuente
         def ajustar_año(fecha_periodo, year):
             return fecha_periodo.to_timestamp().replace(year=year)
 
@@ -271,7 +310,7 @@ else:
 
     # Mostrar gráfico en Streamlit
     st.plotly_chart(fig)
-
+    
     # Calcular el promedio histórico
     if tipo_promedio == 'Por Día':
         df_prom1 = df_filtro1.groupby('MES-DIA')['AJUSTE / PRIMA REF.'].mean().reset_index()
@@ -284,8 +323,12 @@ else:
 
     df_prom_merged = pd.merge(df_prom1, df_prom2, on='MES-DIA' if tipo_promedio == 'Por Día' else 'MES', suffixes=('_pos1', '_pos2'))
 
+    # Calcular el spread histórico y spread porcentual histórico
     df_prom_merged['SPREAD_PROM'] = df_prom_merged['AJUSTE / PRIMA REF._pos1'] - df_prom_merged['AJUSTE / PRIMA REF._pos2']
     df_prom_merged['SPREAD_PROM_PORCENTUAL'] = (df_prom_merged['AJUSTE / PRIMA REF._pos1'] / df_prom_merged['AJUSTE / PRIMA REF._pos2'] - 1) * 100
+
+    # Filtrar valores NaN antes de calcular las métricas
+    df_prom_merged = df_prom_merged.dropna(subset=['SPREAD_PROM', 'SPREAD_PROM_PORCENTUAL'])
 
     # Calcular el promedio histórico, desviación estándar y coeficiente de variación
     promedio_spread_historico = df_prom_merged['SPREAD_PROM'].mean()
@@ -310,18 +353,23 @@ else:
     cv_anterior = (std_spread_anterior / promedio_spread_anterior * 100) if promedio_spread_anterior != 0 else float('inf')
 
     # Filtrar datos para el promedio histórico en el mismo MES-DIA (o la fecha más cercana si no existe exactamente)
-    df_prom_merged_hist = pd.merge(df_promedio1[['FECHA', 'AJUSTE / PRIMA REF.']], 
-                               df_promedio2[['FECHA', 'AJUSTE / PRIMA REF.']], 
-                               on='FECHA', 
-                               suffixes=('_pos1', '_pos2'))
+    df_prom_merged_hist = pd.merge(
+        df_promedio1[['FECHA', 'AJUSTE / PRIMA REF.']], 
+        df_promedio2[['FECHA', 'AJUSTE / PRIMA REF.']], 
+        on='FECHA', 
+        suffixes=('_pos1', '_pos2')
+    )
 
     # Calcular el Spread Histórico y el Spread Porcentual Histórico
     df_prom_merged_hist['SPREAD_HISTORICO'] = df_prom_merged_hist['AJUSTE / PRIMA REF._pos1'] - df_prom_merged_hist['AJUSTE / PRIMA REF._pos2']
     df_prom_merged_hist['SPREAD_PORCENTUAL_HISTORICO'] = (df_prom_merged_hist['AJUSTE / PRIMA REF._pos1'] / df_prom_merged_hist['AJUSTE / PRIMA REF._pos2'] - 1) * 100
 
+    # Filtrar valores NaN antes de calcular las métricas
+    df_prom_merged_hist = df_prom_merged_hist.dropna(subset=['SPREAD_HISTORICO', 'SPREAD_PORCENTUAL_HISTORICO'])
+
     # Obtener el spread histórico más cercano a la fecha actual
-    spread_historico = df_prom_merged_hist['SPREAD_HISTORICO'].iloc[-1]
-    spread_porcentual_historico = df_prom_merged_hist['SPREAD_PORCENTUAL_HISTORICO'].iloc[-1]
+    spread_historico = df_prom_merged_hist['SPREAD_HISTORICO'].iloc[-1] if not df_prom_merged_hist.empty else float('nan')
+    spread_porcentual_historico = df_prom_merged_hist['SPREAD_PORCENTUAL_HISTORICO'].iloc[-1] if not df_prom_merged_hist.empty else float('nan')
 
     # Mostrar métricas de spread
     col1, col2, col3 = st.columns(3)
@@ -347,6 +395,7 @@ else:
         st.metric("Promedio Spread Histórico", f"{promedio_spread_historico:.2f}")
         st.metric("Desviación Estándar Spread Histórico", f"{std_spread_historico:.2f}")
         st.metric("Coeficiente de Variación Histórico", f"{cv_historico:.2f}%")
+
 
     with st.expander(f"Comparación de Spread"):
         # Mostrar gráfico
