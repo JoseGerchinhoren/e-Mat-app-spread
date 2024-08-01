@@ -104,13 +104,23 @@ else:
         'AJUSTE / PRIMA REF._pos2': 'AJUSTE POS2'
     })
 
+    # Renombrar columnas
+    df_merged = df_merged.rename(columns={
+        'AJUSTE / PRIMA REF._pos1': 'AJUSTE POS1',
+        'AJUSTE / PRIMA REF._pos2': 'AJUSTE POS2'
+    })
+
     # Calcular spread después de renombrar las columnas
     df_merged['SPREAD'] = df_merged['AJUSTE POS1'] - df_merged['AJUSTE POS2']
+    df_merged['SPREAD_PORCENTUAL'] = (df_merged['AJUSTE POS1'] / df_merged['AJUSTE POS2'] - 1) * 100 # Mide cuánto representa el precio del Producto 1 en relación al Producto 2, expresado como un porcentaje.
+
     df_merged_anterior = df_merged_anterior.rename(columns={
         'AJUSTE / PRIMA REF._pos1': 'AJUSTE POS1',
         'AJUSTE / PRIMA REF._pos2': 'AJUSTE POS2'
     })
     df_merged_anterior['SPREAD'] = df_merged_anterior['AJUSTE POS1'] - df_merged_anterior['AJUSTE POS2']
+
+    df_merged_anterior['SPREAD_PORCENTUAL'] = (df_merged_anterior['AJUSTE POS1'] / df_merged_anterior['AJUSTE POS2'] - 1) * 100
 
     # Selección de años para incluir en el cálculo
     anos_disponibles = sorted(df['AÑO_CONTRATO'].dropna().unique())
@@ -161,9 +171,9 @@ else:
 
         # Mostrar y permitir la modificación del año más frecuente
         with col3:
-            anio_mas_frecuente1 = st.number_input('Año más frecuente para el primer producto', value=anio_mas_frecuente1)
+            anio_mas_frecuente1 = st.number_input('Año más frecuente para la primer posición', value=anio_mas_frecuente1)
         with col4:
-            anio_mas_frecuente2 = st.number_input('Año más frecuente para el segundo producto', value=anio_mas_frecuente2)
+            anio_mas_frecuente2 = st.number_input('Año más frecuente para la segunda posición', value=anio_mas_frecuente2)
 
         # Función para convertir MES-DIA a fecha, manejando errores de fechas inválidas
         def convertir_a_fecha(mes_dia, year):
@@ -241,7 +251,7 @@ else:
 
     fig.update_layout(
         xaxis_title='Fecha',
-        yaxis_title='Precio de ajuste / prima ref.',
+        yaxis_title='Precio de ajuste',
         xaxis=dict(
             tickformat='%d/%m/%Y',
             tickmode='auto'
@@ -262,48 +272,98 @@ else:
     # Mostrar gráfico en Streamlit
     st.plotly_chart(fig)
 
-    with st.expander("Métricas", expanded=True):
+    # Calcular el promedio histórico
+    if tipo_promedio == 'Por Día':
+        df_prom1 = df_filtro1.groupby('MES-DIA')['AJUSTE / PRIMA REF.'].mean().reset_index()
+        df_prom2 = df_filtro2.groupby('MES-DIA')['AJUSTE / PRIMA REF.'].mean().reset_index()
+    else:
+        df_filtro1['MES'] = df_filtro1['FECHA'].dt.strftime('%m')
+        df_filtro2['MES'] = df_filtro2['FECHA'].dt.strftime('%m')
+        df_prom1 = df_filtro1.groupby('MES')['AJUSTE / PRIMA REF.'].mean().reset_index()
+        df_prom2 = df_filtro2.groupby('MES')['AJUSTE / PRIMA REF.'].mean().reset_index()
 
-        # Calcular promedio y desviación estándar de spread de los instrumentos seleccionados
-        promedio_spread_actual = df_merged['SPREAD'].mean()
-        std_spread_actual = df_merged['SPREAD'].std()
-        promedio_spread_anterior = df_merged_anterior['SPREAD'].mean()
-        std_spread_anterior = df_merged_anterior['SPREAD'].std()
+    df_prom_merged = pd.merge(df_prom1, df_prom2, on='MES-DIA' if tipo_promedio == 'Por Día' else 'MES', suffixes=('_pos1', '_pos2'))
 
-        # Spread actual
-        spread_actual = df_merged['SPREAD'].iloc[-1]
+    df_prom_merged['SPREAD_PROM'] = df_prom_merged['AJUSTE / PRIMA REF._pos1'] - df_prom_merged['AJUSTE / PRIMA REF._pos2']
+    df_prom_merged['SPREAD_PROM_PORCENTUAL'] = (df_prom_merged['AJUSTE / PRIMA REF._pos1'] / df_prom_merged['AJUSTE / PRIMA REF._pos2'] - 1) * 100
 
-        # Calcular el umbral para recomendaciones basadas en desvíos estándar del promedio histórico
-        umbral_bajo = promedio_spread_actual - std_spread_actual
-        umbral_alto = promedio_spread_actual + std_spread_actual
+    # Calcular el promedio histórico, desviación estándar y coeficiente de variación
+    promedio_spread_historico = df_prom_merged['SPREAD_PROM'].mean()
+    std_spread_historico = df_prom_merged['SPREAD_PROM'].std()
+    cv_historico = (std_spread_historico / promedio_spread_historico * 100) if promedio_spread_historico != 0 else float('inf')
 
-        # Mostrar el promedio y la desviación estándar de spread de los instrumentos seleccionados
-        st.header(f'Promedio del Spread: {promedio_spread_actual:.2f}')
+    # Calcular promedio y desviación estándar de spread de los instrumentos seleccionados
+    promedio_spread_actual = df_merged['SPREAD'].mean()
+    std_spread_actual = df_merged['SPREAD'].std()
+    promedio_spread_anterior = df_merged_anterior['SPREAD'].mean()
+    std_spread_anterior = df_merged_anterior['SPREAD'].std()
 
-        if spread_actual > umbral_alto:
-            st.write(f'El spread más reciente ({spread_actual:.1f}) es significativamente mayor que el promedio histórico ({promedio_spread_actual:.2f}).')
-        elif spread_actual < umbral_bajo:
-            st.write(f'El spread más reciente ({spread_actual:.1f}) es significativamente menor que el promedio histórico ({promedio_spread_actual:.2f}).')
-        else:
-            if spread_actual > promedio_spread_actual:
-                st.write(f'El spread más reciente ({spread_actual:.1f}) es poco mayor que el promedio histórico ({promedio_spread_actual:.2f}).')
-            elif spread_actual < promedio_spread_actual:
-                st.write(f'El spread más reciente ({spread_actual:.1f}) es poco menor que el promedio histórico ({promedio_spread_actual:.2f}).')
-            else:
-                st.write(f'El spread más reciente ({spread_actual:.1f}) es igual al promedio histórico ({promedio_spread_actual:.2f}).')
+    # Spread actual
+    spread_actual = df_merged['SPREAD'].iloc[-1]
 
-        st.write(f'Promedio de Spread del Año Anterior: {promedio_spread_anterior:.2f}')
+    # Calcular el umbral para recomendaciones basadas en desvíos estándar del promedio histórico
+    umbral_bajo = promedio_spread_actual - std_spread_actual
+    umbral_alto = promedio_spread_actual + std_spread_actual
 
-        st.header(f'Desviación Estándar del Spread: {std_spread_actual:.2f}')
-        st.write(f'Desviación Estándar del Spread del Año Anterior: {std_spread_anterior:.2f}')
+    # Calcular el Coeficiente de Variación (CV) en porcentaje
+    cv_actual = (std_spread_actual / promedio_spread_actual * 100) if promedio_spread_actual != 0 else float('inf')
+    cv_anterior = (std_spread_anterior / promedio_spread_anterior * 100) if promedio_spread_anterior != 0 else float('inf')
 
-        # Calcular el Coeficiente de Variación (CV) en porcentaje
-        cv_actual = (std_spread_actual / promedio_spread_actual * 100) if promedio_spread_actual != 0 else float('inf')
-        cv_anterior = (std_spread_anterior / promedio_spread_anterior * 100) if promedio_spread_anterior != 0 else float('inf')
+    # Filtrar datos para el promedio histórico en el mismo MES-DIA (o la fecha más cercana si no existe exactamente)
+    df_prom_merged_hist = pd.merge(df_promedio1[['FECHA', 'AJUSTE / PRIMA REF.']], 
+                               df_promedio2[['FECHA', 'AJUSTE / PRIMA REF.']], 
+                               on='FECHA', 
+                               suffixes=('_pos1', '_pos2'))
 
-        # Mostrar el CV en porcentaje
-        st.header(f'Coeficiente de Variación del Spread: {cv_actual:.2f}%')
-        st.write(f'Coeficiente de Variación del Spread del Año Anterior: {cv_anterior:.2f}%')
+    # Calcular el Spread Histórico y el Spread Porcentual Histórico
+    df_prom_merged_hist['SPREAD_HISTORICO'] = df_prom_merged_hist['AJUSTE / PRIMA REF._pos1'] - df_prom_merged_hist['AJUSTE / PRIMA REF._pos2']
+    df_prom_merged_hist['SPREAD_PORCENTUAL_HISTORICO'] = (df_prom_merged_hist['AJUSTE / PRIMA REF._pos1'] / df_prom_merged_hist['AJUSTE / PRIMA REF._pos2'] - 1) * 100
+
+    # Obtener el spread histórico más cercano a la fecha actual
+    spread_historico = df_prom_merged_hist['SPREAD_HISTORICO'].iloc[-1]
+    spread_porcentual_historico = df_prom_merged_hist['SPREAD_PORCENTUAL_HISTORICO'].iloc[-1]
+
+    # Mostrar métricas de spread
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric("Spread Actual", f"{df_merged['SPREAD'].iloc[-1]:,.2f}")
+        st.metric("Spread Porcentual Actual", f"{df_merged['SPREAD_PORCENTUAL'].iloc[-1]:.2f}%")
+        st.metric("Promedio Spread Actual", f"{promedio_spread_actual:.2f}")
+        st.metric("Desviación Estándar Spread Actual", f"{std_spread_actual:.2f}")
+        st.metric("Coeficiente de Variación Actual", f"{cv_actual:.2f}%")
+
+    with col2:
+        st.metric("Spread Año Anterior", f"{df_merged_anterior['SPREAD'].iloc[-1]:,.2f}")
+        st.metric("Spread Porcentual Año Anterior", f"{df_merged_anterior['SPREAD_PORCENTUAL'].iloc[-1]:.2f}%")
+        st.metric("Promedio Spread Año Anterior", f"{promedio_spread_anterior:.2f}")
+        st.metric("Desviación Estándar Spread Año Anterior", f"{std_spread_anterior:.2f}")
+        st.metric("Coeficiente de Variación Año Anterior", f"{cv_anterior:.2f}%")
+
+    with col3:
+        # Añadir métricas del histórico
+        st.metric("Spread Histórico", f"{spread_historico:.2f}")
+        st.metric("Spread Porcentual Histórico", f"{spread_porcentual_historico:.2f}%")
+        st.metric("Promedio Spread Histórico", f"{promedio_spread_historico:.2f}")
+        st.metric("Desviación Estándar Spread Histórico", f"{std_spread_historico:.2f}")
+        st.metric("Coeficiente de Variación Histórico", f"{cv_historico:.2f}%")
+
+    with st.expander(f"Comparación de Spread"):
+        # Mostrar gráfico
+        fig = go.Figure()
+
+        fig.add_trace(go.Scatter(x=df_merged['FECHA'], y=df_merged['SPREAD'], mode='lines', name='Spread Actual'))
+        fig.add_trace(go.Scatter(x=df_merged['FECHA'], y=df_merged['SPREAD_PORCENTUAL'], mode='lines', name='Spread Porcentual Actual', yaxis='y2'))
+        fig.add_trace(go.Scatter(x=df_merged_anterior['FECHA'], y=df_merged_anterior['SPREAD'], mode='lines', name='Spread Año Anterior'))
+        fig.add_trace(go.Scatter(x=df_merged_anterior['FECHA'], y=df_merged_anterior['SPREAD_PORCENTUAL'], mode='lines', name='Spread Porcentual Año Anterior', yaxis='y2'))
+
+        fig.update_layout(title=f"Comparación de Spread entre {posicion1} y {posicion2}",
+                        xaxis_title='Fecha',
+                        yaxis_title='Spread (Valor)',
+                        yaxis2=dict(title='Spread (Porcentaje)', overlaying='y', side='right'),
+                        legend=dict(x=0, y=1.1, orientation="h"))
+
+        st.plotly_chart(fig)
 
     with st.expander("Tabla de spreads", expanded=True):
 
@@ -315,5 +375,9 @@ else:
 
         df_merged['FECHA'] = df_merged['FECHA'].dt.strftime('%d/%m/%Y')
 
-        # Mostrar la tabla de spreads con las nuevas columnas
-        st.dataframe(df_merged[['FECHA', 'AJUSTE POS1', 'AJUSTE POS2', 'SPREAD']])
+        # Renombrar la columna y formatear los valores como porcentaje
+        df_merged = df_merged.rename(columns={'SPREAD_PORCENTUAL': 'SPREAD%'})
+        df_merged['SPREAD%'] = df_merged['SPREAD%'].apply(lambda x: f"{x:.2f}%")
+
+        # Mostrar la tabla de spreads con las nuevas columnas, incluyendo el spread porcentual formateado
+        st.dataframe(df_merged[['FECHA', 'AJUSTE POS1', 'AJUSTE POS2', 'SPREAD', 'SPREAD%']])
