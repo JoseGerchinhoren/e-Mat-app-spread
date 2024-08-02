@@ -120,8 +120,13 @@ else:
     anos_disponibles = sorted(df['AÑO_CONTRATO'].dropna().unique())
     anos_seleccionados = st.multiselect('Selecciona los años a incluir en el cálculo de promedio histórico del ajuste ', options=anos_disponibles, default=anos_disponibles)
 
-    # Selección del tipo de promedio
-    tipo_promedio = st.radio('Elige cómo calcular el promedio histórico del ajuste', ['Por Semana', 'Por Día', 'Por Mes'])
+    # Crear dos columnas
+    col1, col2 = st.columns(2)
+
+    # Selección de productos en la primera columna
+    with col1:
+        # Selección del tipo de promedio
+        tipo_promedio = st.radio('Elige cómo calcular el promedio histórico del ajuste', ['Por Semana', 'Por Día', 'Por Mes'], horizontal=True)
 
     # Función para generar el patrón de expresión regular a partir de la posición seleccionada
     def generar_patron(posicion):
@@ -161,15 +166,9 @@ else:
         anio_mas_frecuente2 = df_pos2['AÑO'].value_counts().idxmax()
         # Determina el mayor de los dos años más frecuentes
         anio_mas_frecuente = max(anio_mas_frecuente1, anio_mas_frecuente2)
-
-        # Crear dos columnas
-        col3, col4 = st.columns(2)
-
-        # Mostrar y permitir la modificación del año más frecuente
-        with col3:
-            anio_mas_frecuente1 = st.number_input('Año más frecuente para la primera posición', value=anio_mas_frecuente)
-        with col4:
-            anio_mas_frecuente2 = st.number_input('Año más frecuente para la segunda posición', value=anio_mas_frecuente)
+        
+        with col2:
+            anio_mas_frecuente1  = st.number_input('Año de referencia para promedio histórico del ajuste', value=anio_mas_frecuente)
 
         # Función para convertir MES-DIA a fecha, manejando errores de fechas inválidas
         def convertir_a_fecha(mes_dia, year):
@@ -180,7 +179,7 @@ else:
 
         # Convertir MES-DIA a un datetime para plotly usando el año más frecuente
         df_promedio1['FECHA'] = df_promedio1['MES-DIA'].apply(lambda x: convertir_a_fecha(x, anio_mas_frecuente1))
-        df_promedio2['FECHA'] = df_promedio2['MES-DIA'].apply(lambda x: convertir_a_fecha(x, anio_mas_frecuente2))
+        df_promedio2['FECHA'] = df_promedio2['MES-DIA'].apply(lambda x: convertir_a_fecha(x, anio_mas_frecuente1))
 
         # Filtrar las filas que tuvieron conversiones exitosas
         df_promedio1 = df_promedio1.dropna(subset=['FECHA'])
@@ -200,22 +199,16 @@ else:
 
         # Determina el mayor de los dos años más frecuentes
         anio_mas_frecuente = max(anio_mas_frecuente1, anio_mas_frecuente2)
-
-        # Crear dos columnas
-        col3, col4 = st.columns(2)
-
-        # Mostrar y permitir la modificación del año más frecuente
-        with col3:
-            anio_mas_frecuente1 = st.number_input('Año más frecuente para la primera posición', value=anio_mas_frecuente)
-        with col4:
-            anio_mas_frecuente2 = st.number_input('Año más frecuente para la segunda posición', value=anio_mas_frecuente)
+    
+        with col2:
+            anio_mas_frecuente1  = st.number_input('Año de referencia para promedio histórico del ajuste', value=anio_mas_frecuente)
 
         # Ajustar las fechas para el promedio histórico al año más frecuente
         def ajustar_año(fecha, year):
             return fecha.replace(year=year)
 
         df_promedio1['FECHA'] = df_promedio1['SEMANA'].apply(lambda x: ajustar_año(x, anio_mas_frecuente1))
-        df_promedio2['FECHA'] = df_promedio2['SEMANA'].apply(lambda x: ajustar_año(x, anio_mas_frecuente2))
+        df_promedio2['FECHA'] = df_promedio2['SEMANA'].apply(lambda x: ajustar_año(x, anio_mas_frecuente1))
 
         # Ordenar por fecha para asegurar la correcta representación
         df_promedio1 = df_promedio1.sort_values(by='FECHA').reset_index(drop=True)
@@ -237,18 +230,12 @@ else:
         # Encuentra el año más frecuente en los datos filtrados
         anio_mas_frecuente1 = df_pos1['AÑO'].value_counts().idxmax()
         anio_mas_frecuente2 = df_pos2['AÑO'].value_counts().idxmax()
-        
+
         # Determina el mayor de los dos años más frecuentes
         anio_mas_frecuente = max(anio_mas_frecuente1, anio_mas_frecuente2)
-
-        # Crear dos columnas
-        col3, col4 = st.columns(2)
-
-        # Mostrar y permitir la modificación del año más frecuente
-        with col3:
-            anio_mas_frecuente1 = st.number_input('Año más frecuente para la primera posición', value=anio_mas_frecuente)
-        with col4:
-            anio_mas_frecuente2 = st.number_input('Año más frecuente para la segunda posición', value=anio_mas_frecuente)
+        
+        with col2:
+            anio_mas_frecuente1  = st.number_input('Año de referencia para promedio histórico del ajuste', value=anio_mas_frecuente)
 
         # Ajustar las fechas para el promedio histórico al año más frecuente
         def ajustar_año(fecha_periodo, year):
@@ -256,7 +243,7 @@ else:
 
         # Ajustar las fechas para el promedio histórico al año más frecuente
         df_promedio1['FECHA'] = df_promedio1['MES'].apply(lambda x: ajustar_año(x, anio_mas_frecuente1))
-        df_promedio2['FECHA'] = df_promedio2['MES'].apply(lambda x: ajustar_año(x, anio_mas_frecuente2))
+        df_promedio2['FECHA'] = df_promedio2['MES'].apply(lambda x: ajustar_año(x, anio_mas_frecuente1))
 
     # Crear gráfico interactivo con Plotly
     fig = go.Figure()
@@ -396,7 +383,6 @@ else:
         st.metric("Desviación Estándar Spread Histórico", f"{std_spread_historico:.2f}")
         st.metric("Coeficiente de Variación Histórico", f"{cv_historico:.2f}%")
 
-
     with st.expander(f"Comparación de Spread"):
         # Mostrar gráfico
         fig = go.Figure()
@@ -425,8 +411,8 @@ else:
         df_merged['FECHA'] = df_merged['FECHA'].dt.strftime('%d/%m/%Y')
 
         # Renombrar la columna y formatear los valores como porcentaje
-        df_merged = df_merged.rename(columns={'SPREAD_PORCENTUAL': 'SPREAD%'})
-        df_merged['SPREAD%'] = df_merged['SPREAD%'].apply(lambda x: f"{x:.2f}%")
+        df_merged = df_merged.rename(columns={'SPREAD_PORCENTUAL': 'RELACION%'})
+        df_merged['RELACION%'] = df_merged['RELACION%'].apply(lambda x: f"{x:.2f}%")
 
         # Mostrar la tabla de spreads con las nuevas columnas, incluyendo el spread porcentual formateado
-        st.dataframe(df_merged[['FECHA', 'AJUSTE POS1', 'AJUSTE POS2', 'SPREAD', 'SPREAD%']])
+        st.dataframe(df_merged[['FECHA', 'AJUSTE POS1', 'AJUSTE POS2', 'SPREAD', 'RELACION%']])
