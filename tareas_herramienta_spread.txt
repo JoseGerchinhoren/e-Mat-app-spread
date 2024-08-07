@@ -27,19 +27,28 @@ Agregue al grafico el valor promedio de ajuste historico de las posiciones selec
 
 Modifique funcion lambda por los cambios de columnas.
 
+Cambie el año de promedio historico, porque queda desfazado al año que se quiere, puse un año menos.
+
+Puse st.expander para metricas y tabla
+
+Puse Spread Relativo/Porcentual en la herramienta de spread.
+
+Limpie productos irrelevantes. Quedaron SOJ Dolar MATba, MAI Dolar MATba y TRI Dolar MATba.
+
+Guardar datos procesados (como en tabla de spread) en S3.
+
+Cree funcion lambda para que guarde diariamente datos de ajustes y relaciones en historico_relaciones.csv y historico_ajustes_para_relacion.csv
 
 HACER:
-Limpiar productos irrelevantes. Mandar resumen de producto y cuantas filas tiene cada uno, para ver cuales son irrelevantes.
 
-Revisar resumen de reunion para ver mas tareas.
+Hacer documentacion (README)
 
-Ver lo de los porcentajes de la herramienta de spread
 
-Cambiar el año de promedio historico, porque queda desfazado al año que se quiere, poner uno menos o que tome el año que tenga la mayoria de las fechas.
+Modificar pagina de la herramienta para basarse mas en porcentajes en los graficos y metricas.
 
-Poner st.expander para recomendacion, metricas y tabla
+Desarrollar matriz de correlacion y modelo de ML
 
-Para el calculo de promedio ver de que no tenga en cuenta los valores de ajuste en las fechas que no hay datos en los años seleccionados.
+
 
 A TENER EN CUENTA:
 
@@ -61,10 +70,16 @@ trigo enero vs trigo marzo
 trigo enero vs trigo julio
 Los que son dentro del mismo cultivo como por ejemplo trigo enero vs trigo julio nos permiten hacer sugerencias muy interesantes a futuro que pueden incluir la financiación del productor agropecuario
 
+
 ANALIZAR SI HACER:
 Matriz de Correlación: Agrega una matriz de correlación para evaluar cómo los spreads de diferentes instrumentos están relacionados entre sí.
+
 Análisis de Correlación Dinámica: Calcula y muestra cómo la correlación entre spreads cambia a lo largo del tiempo.
 
 Hacer algoritmo para analizar entre que instrumentos hay mayor spread promedio, desviacion y CV. Esto es para que recomiende en que instrumentos trabajar.
 
 Poner spread maximo, para tomar deciciones si el spread promedio esta mas cerca del maximo o esta mas cerca del minimo, para incluir en recomendador.
+
+
+
+Spread Relativo/Porcentual: Se calcula tomando el precio de un producto (en este caso, el AJUSTE POS1), lo divides por el precio del otro producto (AJUSTE POS2), restas 1 y luego multiplicas por 100 para obtener el resultado en porcentaje. Esto te da una medida de cuánto es el precio de un producto en relación al otro, en términos porcentuales.
