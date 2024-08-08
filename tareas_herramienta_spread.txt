@@ -37,9 +37,12 @@ Limpie productos irrelevantes. Quedaron SOJ Dolar MATba, MAI Dolar MATba y TRI D
 
 Guardar datos procesados (como en tabla de spread) en S3.
 
-Cree funcion lambda para que guarde diariamente datos de ajustes y relaciones en historico_relaciones.csv y historico_ajustes_para_relacion.csv
+
 
 HACER:
+Crear funcion lambda para que guarde diariamente datos de ajustes y relaciones en historico_relaciones.csv y historico_ajustes_para_relacion.csv
+
+Modificar codigo de funcion lambda porque da error de memoria.
 
 Hacer documentacion (README)
 

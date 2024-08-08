@@ -133,12 +133,24 @@ def lambda_handler(event, context):
             # Convertir los resultados a un DataFrame
             resultados_df = pd.DataFrame(resultados)
 
-            # Convertir los nuevos datos a CSV en un buffer de memoria
-            result_csv_buffer = StringIO()
-            resultados_df.to_csv(result_csv_buffer, index=False, header=False)  # Eliminar header para evitar duplicados
+            # Descargar el archivo CSV existente `historico_relaciones.csv` desde S3 (si existe)
+            try:
+                existing_result_obj = s3.get_object(Bucket=bucket_name, Key=result_csv_name)
+                existing_result_csv = existing_result_obj['Body'].read().decode('utf-8')
+                existing_result_data = pd.read_csv(StringIO(existing_result_csv))
+            except s3.exceptions.NoSuchKey:
+                existing_result_data = pd.DataFrame(columns=["FECHA", "PRODUCTO_1", "TIPO_CONTRATO_1", "PRODUCTO_2", "TIPO_CONTRATO_2", "AJUSTE_POS1", "AJUSTE_POS2", "SPREAD", "RELACION%"])
+                log_messages.append(f"No se encontró el archivo CSV en S3: {result_csv_name}. Se ha creado un DataFrame vacío.")
 
-            # Agregar las nuevas líneas al archivo existente en S3
-            s3.put_object(Bucket=bucket_name, Key=result_csv_name, Body=result_csv_buffer.getvalue(), ContentType='text/csv', CacheControl='max-age=31536000')
+            # Combinar los datos existentes con los nuevos datos
+            final_result_data = pd.concat([existing_result_data, resultados_df]).drop_duplicates().reset_index(drop=True)
+
+            # Convertir los datos combinados a CSV en un buffer de memoria
+            final_result_csv_buffer = StringIO()
+            final_result_data.to_csv(final_result_csv_buffer, index=False)
+
+            # Guardar los datos combinados en S3
+            s3.put_object(Bucket=bucket_name, Key=result_csv_name, Body=final_result_csv_buffer.getvalue())
 
             # Registrar la cantidad de filas guardadas en historico_relaciones.csv
             filas_spread_comparison = len(resultados_df)
